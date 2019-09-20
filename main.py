@@ -106,7 +106,7 @@ def main():
     train_loader = fetch_dataloader('train', params)
     val_loader = fetch_dataloader('val', params)
     test_loader = fetch_dataloader('test', params)
-    lr_scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=params['lr'], patience=10, cooldown=0, verbose=True)
+    lr_scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=10, cooldown=0, verbose=True)
 
     # tensorboard
     time_stamp = "{0:%Y-%m-%dT%H-%M-%S/}".format(datetime.now())
