@@ -140,10 +140,10 @@ def train(writer, model, optimizer, device, train_loader, epoch):
         data, target = data.to(device=device, dtype=torch.float), target.to(device)
         output = model(data)
         loss = nn.CrossEntropyLoss()(output, target)
-        loss.backward()
-        losses += loss.item()
-        optimizer.step()
         optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        losses += loss.item()
         if (idx + 1) % 50 == 0:
             writer.add_scalar('Loss/train',
                               losses / 50,

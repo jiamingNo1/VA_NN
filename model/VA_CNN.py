@@ -17,7 +17,6 @@ class VACNN(nn.Module):
           C is the number of input channels,
           T is the length of the sequence,
           V is the number of joints,
-          M is the number of person.
     '''
 
     def __init__(self,
@@ -48,43 +47,38 @@ class VACNN(nn.Module):
         self.Liner_layer = nn.Linear(2048, num_class)
 
     def forward(self, x, target=None):
-        N, C, T, V, M = x.size()
-        min_map = torch.tensor([-3.602826, -3.602826, -3.602826])
-        logits = []
-        for idx in range(self.num_person):
-            out = self.sub_conv1(x[:, :, :, :, idx])
-            out = self.sub_conv2(out)
-            out = out.view(out.size(0), -1)
-            out = self.sub_fc(out)
-            sub_out = []
-            for n in range(N):
-                rotation_x = torch.tensor(
-                    [[1, 0, 0],
-                     [0, math.cos(out[n, 0].item() * math.pi), math.sin(out[n, 0].item() * math.pi)],
-                     [0, math.sin(-out[n, 0].item() * math.pi), math.cos(out[n, 0].item() * math.pi)]]
-                )
-                rotation_y = torch.tensor(
-                    [[math.cos(out[n, 1].item() * math.pi), 0, math.sin(-out[n, 1].item() * math.pi)],
-                     [0, 1, 0],
-                     [math.sin(out[n, 1].item() * math.pi), 0, math.cos(out[n, 1].item() * math.pi)]]
-                )
-                rotation_z = torch.tensor(
-                    [[math.cos(out[n, 2].item() * math.pi), math.sin(out[n, 2].item() * math.pi), 0],
-                     [math.sin(-out[n, 2].item() * math.pi), math.cos(out[n, 2].item() * math.pi), 0],
-                     [0, 0, 1]]
-                )
-                rotation = torch.mm(torch.mm(rotation_x, rotation_y), rotation_z)
-                out_ = torch.mm(rotation, x[n, :, :, :, idx].view(C, T * V)) + 255 * (
-                        torch.mm(rotation, (min_map[:, None] + out[n, 3:].view(-1, 1).expand(-1, T * V))) - min_map[
-                                                                                                            :,
-                                                                                                            None]) / 8.812765
-                out_ = out_.contiguous().view(C, T, V)
-                sub_out.append(out_)
-            sub_out = torch.stack(sub_out).contiguous().view(N, C, T, V)
-            out = self.resnet_layer(sub_out)
-            logits.append(out)
-        # max out logits
-        out = torch.max(logits[0], logits[1])
+        N, C, T, V = x.size()
+        min_val, max_val = -3.602826, 5.209939
+
+        out = self.sub_conv1(x)
+        out = self.sub_conv2(out)
+        out = out.view(out.size(0), -1)
+        out = self.sub_fc(out)
+        sub_out = []
+        for n in range(N):
+            rotation_x = torch.tensor(
+                [[1, 0, 0],
+                 [0, math.cos(out[n, 0].item() * math.pi), math.sin(out[n, 0].item() * math.pi)],
+                 [0, math.sin(-out[n, 0].item() * math.pi), math.cos(out[n, 0].item() * math.pi)]]
+            )
+            rotation_y = torch.tensor(
+                [[math.cos(out[n, 1].item() * math.pi), 0, math.sin(-out[n, 1].item() * math.pi)],
+                 [0, 1, 0],
+                 [math.sin(out[n, 1].item() * math.pi), 0, math.cos(out[n, 1].item() * math.pi)]]
+            )
+            rotation_z = torch.tensor(
+                [[math.cos(out[n, 2].item() * math.pi), math.sin(out[n, 2].item() * math.pi), 0],
+                 [math.sin(-out[n, 2].item() * math.pi), math.cos(out[n, 2].item() * math.pi), 0],
+                 [0, 0, 1]]
+            )
+            rotation = torch.mm(torch.mm(rotation_x, rotation_y), rotation_z)
+            out_ = torch.mm(rotation, x[n, :, :, :].view(C, T * V)) + 255 * (
+                        torch.mm(rotation, (min_val + out[n, 3:].view(-1, 1).expand(-1, T * V))) - min_val) / (
+                               max_val - min_val)
+            out_ = out_.contiguous().view(C, T, V)
+            sub_out.append(out_)
+        sub_out = torch.stack(sub_out).contiguous().view(N, C, T, V)
+        out = self.resnet_layer(sub_out)
         out = out.view(out.size(0), -1)
         out = self.Liner_layer(out)
         t = out
