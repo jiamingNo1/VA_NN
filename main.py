@@ -11,7 +11,6 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.tensorboard import SummaryWriter
-import torchvision.models as models
 from datetime import datetime
 
 from model.VA_CNN import VACNN
