@@ -3,43 +3,23 @@
   "dataset_name": null,
   "cuda": true,
   "lr": 0.0001,
-  "gamma": 0.1,
   "batch_size": 32,
-  "start_epoch": 0,
   "max_epoch": 100,
   "num_workers": 4,
   "optimizer": "Adam",
   "train_feeder_args": {
     "data_path": null,
     "label_path": null,
-    "normalization": true,
-    "resize": true,
-    "random_choose": false,
-    "random_rotate": 0,
-    "window_size": -1,
-    "debug": false,
     "mmap": true
   },
   "val_feeder_args": {
     "data_path": null,
     "label_path": null,
-    "normalization": true,
-    "resize": true,
-    "random_choose": false,
-    "random_rotate": 0,
-    "window_size": -1,
-    "debug": false,
     "mmap": true
   },
   "test_feeder_args": {
     "data_path": null,
     "label_path": null,
-    "normalization": true,
-    "resize": true,
-    "random_choose": false,
-    "random_rotate": 0,
-    "window_size": -1,
-    "debug": false,
     "mmap": true
   }
 }

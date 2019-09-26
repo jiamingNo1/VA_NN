@@ -12,82 +12,95 @@ import torchvision.models as models
 
 class VACNN(nn.Module):
     '''
-    Input shape should be (N,C,T,V,M)
+    Input shape should be (N,C,T,V)
     where N is the number of samples,
           C is the number of input channels,
           T is the length of the sequence,
           V is the number of joints,
     '''
 
-    def __init__(self,
-                 base_model=None,
-                 in_channel=3,
-                 out_channel=128,
-                 num_person=2,
-                 sub_class=6,
-                 num_class=60
-                 ):
+    def __init__(self, num_class=60):
         super(VACNN, self).__init__()
-        self.num_person = num_person
-        self.sub_class = sub_class
         self.num_class = num_class
-        self.sub_conv1 = nn.Sequential(
-            nn.Conv2d(in_channel, out_channel, kernel_size=5, stride=2, bias=False),
-            nn.BatchNorm2d(out_channel),
-            nn.ReLU(inplace=True)
-        )
-        self.sub_conv2 = nn.Sequential(
-            nn.Conv2d(out_channel, out_channel, kernel_size=5, stride=2, bias=False),
-            nn.BatchNorm2d(out_channel),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(7)
-        )
-        self.sub_fc = nn.Linear(6272, sub_class)
-        self.resnet_layer = nn.Sequential(*list(base_model.children())[:-1])
-        self.Liner_layer = nn.Linear(2048, num_class)
+        self.conv1 = nn.Conv2d(3, 128, kernel_size=5, stride=2, bias=False)
+        self.bn1 = nn.BatchNorm2d(128)
+        self.relu1 = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(128, 128, kernel_size=5, stride=2, bias=False)
+        self.bn2 = nn.BatchNorm2d(128)
+        self.relu2 = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(7)
+        self.fc = nn.Linear(6272, 6)
+        self.resnet_layer = models.resnet50(pretrained=True)
+        self.weights_init()
 
     def forward(self, x, target=None):
         N, C, T, V = x.size()
-        min_val, max_val = -3.602826, 5.209939
+        min_val, max_val = -4.765629, 5.187813
 
-        out = self.sub_conv1(x)
-        out = self.sub_conv2(out)
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu1(out)
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu2(out)
+        out = self.maxpool(out)
+
         out = out.view(out.size(0), -1)
-        out = self.sub_fc(out)
+        out = self.fc(out)
+
         sub_out = []
         for n in range(N):
             rotation_x = torch.tensor(
                 [[1, 0, 0],
-                 [0, math.cos(out[n, 0].item() * math.pi), math.sin(out[n, 0].item() * math.pi)],
-                 [0, math.sin(-out[n, 0].item() * math.pi), math.cos(out[n, 0].item() * math.pi)]]
+                 [0, math.cos(out[n, 0].item()), math.sin(out[n, 0].item())],
+                 [0, math.sin(-out[n, 0].item()), math.cos(out[n, 0].item())]]
             )
             rotation_y = torch.tensor(
-                [[math.cos(out[n, 1].item() * math.pi), 0, math.sin(-out[n, 1].item() * math.pi)],
+                [[math.cos(out[n, 1].item()), 0, math.sin(-out[n, 1].item())],
                  [0, 1, 0],
-                 [math.sin(out[n, 1].item() * math.pi), 0, math.cos(out[n, 1].item() * math.pi)]]
+                 [math.sin(out[n, 1].item()), 0, math.cos(out[n, 1].item())]]
             )
             rotation_z = torch.tensor(
-                [[math.cos(out[n, 2].item() * math.pi), math.sin(out[n, 2].item() * math.pi), 0],
-                 [math.sin(-out[n, 2].item() * math.pi), math.cos(out[n, 2].item() * math.pi), 0],
+                [[math.cos(out[n, 2].item()), math.sin(out[n, 2].item()), 0],
+                 [math.sin(-out[n, 2].item()), math.cos(out[n, 2].item()), 0],
                  [0, 0, 1]]
             )
-            rotation = torch.mm(torch.mm(rotation_x, rotation_y), rotation_z)
+            rotation = torch.mm(torch.mm(rotation_z, rotation_y), rotation_x)
             out_ = torch.mm(rotation, x[n, :, :, :].view(C, T * V)) + 255 * (
-                        torch.mm(rotation, (min_val + out[n, 3:].view(-1, 1).expand(-1, T * V))) - min_val) / (
-                               max_val - min_val)
+                    torch.mm(rotation, (min_val + out[n, 3:6].view(-1, 1).expand(-1, T * V))) - min_val) / (
+                           max_val - min_val)
             out_ = out_.contiguous().view(C, T, V)
             sub_out.append(out_)
+
         sub_out = torch.stack(sub_out).contiguous().view(N, C, T, V)
         out = self.resnet_layer(sub_out)
-        out = out.view(out.size(0), -1)
-        out = self.Liner_layer(out)
+
         t = out
-        assert not ((t != t).any())  # find out nan in tensor
+        assert not ((t != t).any())
+
         return out
+
+    def weights_init(self):
+        for layer in [self.conv1, self.conv2]:
+            for name, param in layer.named_parameters():
+                if 'weight' in name:
+                    nn.init.xavier_uniform_(param)
+                if 'bias' in name:
+                    param.data.zero_()
+        for layer in [self.bn1, self.bn2]:
+            layer.weight.data.fill_(1)
+            layer.bias.data.fill_(0)
+            layer.momentum = 0.99
+            layer.eps = 1e-3
+
+        self.fc.bias.data.zero_()
+        self.fc.weight.data.zero_()
+
+        in_features = self.resnet_layer.fc.in_features
+        self.resnet_layer.fc = nn.Linear(in_features, self.num_class)
 
 
 if __name__ == '__main__':
-    resnet = models.resnet50(pretrained=False)
-    model = VACNN(base_model=resnet)
+    model = VACNN()
     children = list(model.children())
     print(children)

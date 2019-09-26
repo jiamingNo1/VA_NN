@@ -8,8 +8,10 @@ import argparse
 import os
 import sys
 import pickle
+import numpy as np
 from numpy.lib.format import open_memmap
 from sklearn.model_selection import train_test_split
+
 from ntu_read_skeleton import read_xyz
 
 training_subjects = [1, 2, 4, 5, 8, 9, 13, 14, 15, 16, 17, 18, 19, 25, 27, 28, 31, 34, 35, 38]
@@ -30,6 +32,32 @@ def print_output(rate, annotation=''):
     sys.stdout.write(']\n')
 
 
+def seq_translation(data):
+    ske_data = np.transpose(data, [1, 3, 2, 0])
+    num_frame = ske_data.shape[0]
+    ske_data = np.reshape(ske_data, (num_frame, 150))
+    missing_frame_1 = np.where(ske_data[:, :75].sum(axis=1) == 0)[0]
+    missing_frame_2 = np.where(ske_data[:, 75:].sum(axis=1) == 0)[0]
+    cnt1 = len(missing_frame_1)
+    cnt2 = len(missing_frame_2)
+
+    idx = 0
+    while idx < num_frame:
+        if np.any(ske_data[idx, :75] != 0):
+            break
+        idx += 1
+
+    origin = np.copy(ske_data[idx, 3:6])  # joint-2
+
+    for i in range(num_frame):
+        ske_data[i] -= np.tile(origin, 50)
+
+    ske_data[missing_frame_1, :75] = np.zeros((cnt1, 75), dtype=np.float32)
+    ske_data[missing_frame_2, 75:] = np.zeros((cnt2, 75), dtype=np.float32)
+
+    return ske_data
+
+
 def generate_data(data_path,
                   out_path,
                   ignore_sample_path=None,
@@ -42,52 +70,65 @@ def generate_data(data_path,
         ignore_samples = []
     sample_name = []
     sample_label = []
+
     for filename in os.listdir(data_path):
         if filename in ignore_samples:
             continue
         action_class = int(filename[filename.find('A') + 1:filename.find('A') + 4])
         subject_id = int(filename[filename.find('P') + 1:filename.find('P') + 4])
         camera_id = int(filename[filename.find('C') + 1:filename.find('C') + 4])
+
         if benchmark == 'cv':
             training = (camera_id in training_cameras)
         elif benchmark == 'cs':
             training = (subject_id in training_subjects)
         else:
             raise ValueError()
+
         if dataset == 'train':
             training = training
         elif dataset == 'test':
             training = not training
         else:
             raise ValueError()
+
         if training:
             sample_name.append(filename)
             sample_label.append(action_class - 1)
+
     if dataset == 'train':
         sample_name, val_name, sample_label, val_label = train_test_split(sample_name, sample_label, test_size=0.05,
                                                                           random_state=10000)
         with open('{}/val_label.pkl'.format(out_path), 'wb') as f:
             pickle.dump((val_name, list(val_label)), f)
+
         f_data = open_memmap('{}/val_data.npy'.format(out_path),
                              dtype='float32',
                              mode='w+',
-                             shape=(len(val_label), 3, max_frame, num_joint, max_body))
+                             shape=(len(val_label), max_frame, 150))
+
         for idx, s in enumerate(val_name):
             print_output(idx * 1.0 / len(val_label), '({:>5}/{:<5}) Processing {:>5}-{:<5} data: '
                          .format(idx + 1, len(val_name), benchmark, 'val'))
             data = read_xyz(os.path.join(data_path, s), max_body=max_body, num_joint=num_joint)
-            f_data[idx, :, 0:data.shape[1], :, :] = data
+            data = seq_translation(data)
+            f_data[idx, 0:data.shape[0], :] = data
+
     with open('{}/{}_label.pkl'.format(out_path, dataset), 'wb') as f:
         pickle.dump((sample_name, list(sample_label)), f)
+
     f_data = open_memmap('{}/{}_data.npy'.format(out_path, dataset),
                          dtype='float32',
                          mode='w+',
-                         shape=(len(sample_label), 3, max_frame, num_joint, max_body))
+                         shape=(len(sample_label), max_frame, 150))
+
     for idx, s in enumerate(sample_name):
         print_output(idx * 1.0 / len(sample_label), '({:>5}/{:<5}) Processing {:>5}-{:<5} data: '
                      .format(idx + 1, len(sample_name), benchmark, dataset))
         data = read_xyz(os.path.join(data_path, s), max_body=max_body, num_joint=num_joint)
-        f_data[idx, :, 0:data.shape[1], :, :] = data
+        data = seq_translation(data)
+        f_data[idx, 0:data.shape[0], :] = data
+
     sys.stdout.write('\n')
 
 

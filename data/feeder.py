@@ -10,34 +10,22 @@ import numpy as np
 import torch
 import torch.utils.data
 
-try:
-    from data import tools
-except:
-    import tools
-
 
 class Feeder(torch.utils.data.Dataset):
     ''' Feeder for skeleton-based action recognition
     Argument:
         data_path: the path to '.npy' data
         label_path: the path to '.pkl' label
-        random_rotate: If more than 0, randomly rotate theta angel
-        debug: If true, only use the first 100 samples
         mmap: If true, store data in memory
     '''
 
     def __init__(self,
                  data_path,
                  label_path,
-                 random_rotate=0,
-                 debug=False,
                  mmap=True):
         self.data_path = data_path
         self.label_path = label_path
-        self.random_rotate = random_rotate
-        self.debug = debug
         self.mmap = mmap
-
         self.load_data()
 
     def load_data(self):
@@ -49,10 +37,15 @@ class Feeder(torch.utils.data.Dataset):
             self.data = np.load(self.data_path, mmap_mode='r')
         else:
             self.data = np.load(self.data_path)
-        if self.debug:
-            self.sample_name = self.sample_name[0:100]
-            self.label = self.label[0:100]
-            self.data = self.data[0:100]
+
+        max_vals, min_vals = list(), list()
+        for ske_data in self.data:
+            max_val = ske_data.max()
+            min_val = ske_data.min()
+            max_vals.append(float(max_val))
+            min_vals.append(float(min_val))
+        max_vals, min_vals = np.array(max_vals), np.array(min_vals)
+        print('max_val: %f, min_val: %f' % (max_vals.max(), min_vals.min()))
 
     def __len__(self):
         return len(self.label)
@@ -61,26 +54,21 @@ class Feeder(torch.utils.data.Dataset):
         # get data
         data = np.array(self.data[index])
         label = np.array(self.label[index])
-        if self.random_rotate > 0:
-            data = tools.random_rotate(data, self.random_rotate)
 
-        data = np.transpose(data, [1, 3, 2, 0])  # T,M,V,C
-        data_reshape = np.reshape(data, (data.shape[0], 150))
         zero_row = []
-        for idx in range(len(data_reshape)):
-            if (data_reshape[idx, :] == np.zeros((1, 150))).all():
+        for idx in range(len(data)):
+            if (data[idx, :] == np.zeros((1, 150))).all():
                 zero_row.append(idx)
-        data_reshape = np.delete(data_reshape, zero_row, axis=0)
-        if (data_reshape[:, 0:75] == np.zeros((data_reshape.shape[0], 75))).all():
-            data_reshape = np.delete(data_reshape, range(75), axis=1)
-        elif (data_reshape[:, 75:150] == np.zeros((data_reshape.shape[0], 75))).all():
-            data_reshape = np.delete(data_reshape, range(75, 150), axis=1)
+        data = np.delete(data, zero_row, axis=0)
+        if (data[:, 0:75] == np.zeros((data.shape[0], 75))).all():
+            data = np.delete(data, range(75), axis=1)
+        elif (data[:, 75:150] == np.zeros((data.shape[0], 75))).all():
+            data = np.delete(data, range(75, 150), axis=1)
 
-        # min_val, max_val = [-3.602826, -2.716611, 0.]), [3.635367, 1.888282, 5.209939]
-        min_val, max_val = -3.602826, 5.209939
-        data_reshape = np.floor(255 * (data_reshape - min_val) / (max_val - min_val))
+        min_val, max_val = -4.765629, 5.187813
+        data = np.floor(255 * (data - min_val) / (max_val - min_val))
 
-        rgb_data = np.reshape(data_reshape, (data_reshape.shape[0], data_reshape.shape[1] // 3, 3))
+        rgb_data = np.reshape(data, (data.shape[0], data.shape[1] // 3, 3))
         rgb_data = cv2.resize(rgb_data, (224, 224))
         rgb_data[:, :, 0] -= 110
         rgb_data[:, :, 1] -= 110
@@ -89,8 +77,21 @@ class Feeder(torch.utils.data.Dataset):
 
         return rgb_data, label
 
-    def seq_transformation(self, data):
-        pass
+def random_rotate(data, rand_rotate):
+    C, T, V, M = data.shape
+    R = np.eye(3)
+    for i in range(3):
+        theta = (np.random.rand() * 2 - 1) * rand_rotate * np.pi
+        Ri = np.zeros(3, 3)
+        Ri[i, i] = 1
+        Ri[(i + 1) % 3, (i + 1) % 3] = np.cos(theta)
+        Ri[(i + 2) % 3, (i + 2) % 3] = np.cos(theta)
+        Ri[(i + 1) % 3, (i + 2) % 3] = np.sin(theta)
+        Ri[(i + 2) % 3, (i + 1) % 3] = -np.sin(theta)
+        R = np.matmul(R, Ri)
+    data = np.matmul(R, data.reshape(C, T * V * M)).reshape((C, T, V, M)).astype('float32')
+
+    return data
 
 
 def fetch_dataloader(mode, params):
@@ -138,7 +139,5 @@ if __name__ == '__main__':
     label_path = 'data/NTU-RGB+D/cv/val_label.pkl'
     dataset = Feeder(data_path,
                      label_path,
-                     random_rotate=0,
-                     debug=False,
                      mmap=True)
     print(np.bincount(dataset.label))

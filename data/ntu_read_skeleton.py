@@ -94,22 +94,4 @@ if __name__ == '__main__':
     test_skeleton = 'S001C001P001R001A001.skeleton'
     data = read_xyz(os.path.join(data_path, test_skeleton))
     print(data, data.shape)
-
     # show_skeleton_rgb(os.path.join(data_path, test_skeleton))
-
-    # n = 1
-    # c_max = [0, 0, 0]
-    # c_min = [1, 1, 1]
-    # for file in os.listdir('data/NTU-RGB+D/nturgb+d_skeletons'):
-    #     print(n)
-    #     n += 1
-    #     data = read_xyz(os.path.join('data/NTU-RGB-D/nturgb+d_skeletons', file))
-    #
-    #     for idx in range(3):
-    #         if np.min(data[idx, :, :, :]) < c_min[idx]:
-    #             c_min[idx] = np.min(data[idx, :, :, :])
-    #     for idx in range(3):
-    #         if np.max(data[idx, :, :, :]) > c_max[idx]:
-    #             c_max[idx] = np.max(data[idx, :, :, :])
-    # print(c_max)
-    # print(c_min)
