@@ -137,7 +137,7 @@ def train(writer, model, optimizer, device, train_loader, epoch):
     model.train()
     losses = 0.0
     for idx, (data, target) in enumerate(train_loader):
-        data, target = data.to(device=device, dtype=torch.float), target.to(device)
+        data, target = data.to(device), target.to(device)
         output = model(data)
         loss = nn.CrossEntropyLoss()(output, target)
         optimizer.zero_grad()
@@ -160,7 +160,7 @@ def val(writer, model, device, val_loader, epoch):
     correct = 0
     with torch.no_grad():
         for data, target in val_loader:
-            data, target = data.to(device=device, dtype=torch.float), target.to(device)
+            data, target = data.to(device), target.to(device)
             output = model(data)
             loss += nn.CrossEntropyLoss(reduction='sum')(output, target).item()
             pred = output.argmax(dim=1, keepdim=True)
@@ -184,7 +184,7 @@ def test(model, device, test_loader):
     correct = 0
     with torch.no_grad():
         for data, target in test_loader:
-            data, target = data.to(device=device, dtype=torch.float), target.to(device)
+            data, target = data.to(device), target.to(device)
             output = model(data)
             loss += nn.CrossEntropyLoss(reduction='sum')(output, target).item()
             pred = output.argmax(dim=1, keepdim=True)
