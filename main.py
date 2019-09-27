@@ -42,17 +42,6 @@ def main():
     params['dataset_dir'] = args.dataset_dir
     params['dataset_name'] = args.dataset_name
 
-    # tensor setting
-    if torch.cuda.is_available():
-        if args.cuda:
-            torch.set_default_tensor_type('torch.cuda.FloatTensor')
-        else:
-            print("WARNING: It looks like you have a CUDA device,but aren't" +
-                  "using CUDA. \nRun with --cuda for optimal training speed")
-            torch.set_default_tensor_type('torch.FloatTensor')
-    else:
-        torch.set_default_tensor_type('torch.FloatTensor')
-
     device = torch.device("cuda" if args.cuda else "cpu")
     if args.model_name == 'vacnn':
         model = VACNN()

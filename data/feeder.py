@@ -110,6 +110,7 @@ def fetch_dataloader(mode, params):
         params['val_feeder_args']['label_path'] = params['dataset_dir'] + 'NTU-RGB+D' + '/cs/val_label.pkl'
         params['test_feeder_args']['data_path'] = params['dataset_dir'] + 'NTU-RGB+D' + '/cs/test_data.npy'
         params['test_feeder_args']['label_path'] = params['dataset_dir'] + 'NTU-RGB+D' + '/cs/test_label.pkl'
+
     if mode == 'train':
         loader = torch.utils.data.DataLoader(
             dataset=Feeder(**params['train_feeder_args']),
