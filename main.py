@@ -28,7 +28,7 @@ parser.add_argument('--dataset_dir', default='data/', help='root directory for a
 parser.add_argument('--dataset_name', default='NTU-RGB+D-CV', help='dataset name')
 parser.add_argument('--save_dir', default='weights/', help='root directory for saving checkpoint models')
 parser.add_argument('--log_dir', default='logs/', help='root directory for train and test log')
-parser.add_argument('--model_name', default='VACNN', help='model name')
+parser.add_argument('--model_name', default='vacnn', help='model name')
 parser.add_argument('--mode', default='train', help='train or test')
 parser.add_argument('--cuda', default='True', type=str2bool, help='use cuda to train model')
 
@@ -42,7 +42,7 @@ def main():
     params['dataset_dir'] = args.dataset_dir
     params['dataset_name'] = args.dataset_name
 
-    # Training settings
+    # tensor setting
     if torch.cuda.is_available():
         if args.cuda:
             torch.set_default_tensor_type('torch.cuda.FloatTensor')
@@ -54,10 +54,10 @@ def main():
         torch.set_default_tensor_type('torch.FloatTensor')
 
     device = torch.device("cuda" if args.cuda else "cpu")
-    if args.model_name == 'VACNN':
+    if args.model_name == 'vacnn':
         model = VACNN()
         model = nn.DataParallel(model).to(device)
-    elif args.model_name == 'VARNN':
+    elif args.model_name == 'varnn':
         model = VARNN()
         model = nn.DataParallel(model).to(device)
     else:
@@ -97,8 +97,6 @@ def main():
     checkpoint = os.path.join(output_dir, '%s_best.pth' % args.model_name)
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
-    if not os.path.exists(args.log_dir):
-        os.mkdir(args.log_dir)
 
     # train
     if args.mode == 'train':
@@ -122,7 +120,7 @@ def main():
                 earlystop += 1
 
             lr_scheduler.step(current)
-            if earlystop > 8:
+            if earlystop > 7:
                 print('Epoch %d: early stop' % (epoch + 1))
                 break
 
@@ -131,6 +129,7 @@ def main():
 
     # test
     test(model, device, test_loader, checkpoint)
+
 
 def train(writer, model, optimizer, device, train_loader, epoch):
     model.train()
@@ -190,7 +189,7 @@ def val(writer, model, device, val_loader, epoch):
     return 100.0 * correct / len(val_loader.dataset)
 
 
-def test(model, device, test_loader):
+def test(model, device, test_loader, checkpoint):
     model.load_state_dict(torch.load(checkpoint)['state_dict'])
     model.eval()
     loss = 0.0
