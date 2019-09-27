@@ -64,6 +64,7 @@ def main():
         raise ValueError()
 
     # pretrained model
+    model = model.module
     resnet50 = torch.load('weights/resnet50.pth')
     model_dict = model.state_dict()
     resnet50 = {'resnet_layer.' + k: v for k, v in resnet50.items() if 'resnet_layer.' + k in model_dict}
@@ -101,7 +102,7 @@ def main():
     # train
     if args.mode == 'train':
         writer = SummaryWriter('{}{}/'.format(args.log_dir, args.model_name) + time_stamp)
-        for epoch in range(params['start_epoch'], params['max_epoch']):
+        for epoch in range(params['max_epoch']):
             train(writer, model, optimizer, device, train_loader, epoch)
             current = val(writer, model, device, val_loader, epoch)
 
@@ -156,10 +157,10 @@ def train(writer, model, optimizer, device, train_loader, epoch):
                               epoch * len(train_loader) + idx + 1)
             print(
                 "{:%Y-%m-%dT%H-%M-%S}  Epoch-{:<3d} {:3d} Batch  Loss:{:.4f} Acc:{:.4f}".format(datetime.now(),
-                                                                                                 epoch + 1,
-                                                                                                 idx + 1,
-                                                                                                 losses / 100,
-                                                                                                 acces / 3200))
+                                                                                                epoch + 1,
+                                                                                                idx + 1,
+                                                                                                losses / 100,
+                                                                                                acces / 3200))
             acces, losses = 0.0, 0.0
 
 

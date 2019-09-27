@@ -65,6 +65,7 @@ class Feeder(torch.utils.data.Dataset):
         elif (data[:, 75:150] == np.zeros((data.shape[0], 75))).all():
             data = np.delete(data, range(75, 150), axis=1)
 
+        # for ntu
         min_val, max_val = -4.765629, 5.187813
         data = np.floor(255 * (data - min_val) / (max_val - min_val))
 
