@@ -30,7 +30,7 @@ class VACNN(nn.Module):
         self.relu2 = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(7)
         self.fc = nn.Linear(6272, 6)
-        self.resnet_layer = models.resnet50(pretrained=True)
+        self.resnet_layer = models.resnet50()
         self.weights_init()
 
     def forward(self, x, target=None):
@@ -96,11 +96,14 @@ class VACNN(nn.Module):
         self.fc.bias.data.zero_()
         self.fc.weight.data.zero_()
 
-        in_features = self.resnet_layer.fc.in_features
-        self.resnet_layer.fc = nn.Linear(in_features, self.num_class)
-
 
 if __name__ == '__main__':
     model = VACNN()
-    children = list(model.children())
-    print(children)
+    resnet50 = torch.load('weights/resnet50.pth')
+    model_dict = model.state_dict()
+    resnet50 = {'resnet_layer.'+k: v for k, v in resnet50.items() if 'resnet_layer.'+k in model_dict}
+    model_dict.update(resnet50)
+    model.load_state_dict(model_dict)
+    in_features = model.resnet_layer.fc.in_features
+    model.resnet_layer.fc = nn.Linear(in_features, 60)
+    print(model.state_dict())

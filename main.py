@@ -6,6 +6,7 @@
 import os
 import argparse
 import json
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -25,7 +26,7 @@ def str2bool(v):
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_dir', default='data/', help='root directory for all datasets')
 parser.add_argument('--dataset_name', default='NTU-RGB+D-CV', help='dataset name')
-parser.add_argument('--save_dir', default='results/', help='root directory for saving checkpoint models')
+parser.add_argument('--save_dir', default='weights/', help='root directory for saving checkpoint models')
 parser.add_argument('--log_dir', default='logs/', help='root directory for train and test log')
 parser.add_argument('--model_name', default='VACNN', help='model name')
 parser.add_argument('--mode', default='train', help='train or test')
@@ -62,10 +63,14 @@ def main():
     else:
         raise ValueError()
 
-    if not os.path.exists(args.save_dir + args.model_name):
-        os.mkdir(args.save_dir + args.model_name)
-    if not os.path.exists(args.log_dir):
-        os.mkdir(args.log_dir)
+    # pretrained model
+    resnet50 = torch.load('weights/resnet50.pth')
+    model_dict = model.state_dict()
+    resnet50 = {'resnet_layer.' + k: v for k, v in resnet50.items() if 'resnet_layer.' + k in model_dict}
+    model_dict.update(resnet50)
+    model.load_state_dict(model_dict)
+    in_features = model.resnet_layer.fc.in_features
+    model.resnet_layer.fc = nn.Linear(in_features, 60)
 
     # optimizer mode
     if params['optimizer'] == 'Adam':
@@ -84,27 +89,48 @@ def main():
     # tensorboard
     time_stamp = "{0:%Y-%m-%dT%H-%M-%S/}".format(datetime.now())
 
-    # train and test
+    # some setting
+    best = -np.inf
+    best_epoch = 0
+    earlystop = 0
+    output_dir = os.path.join(args.save_dir, args.model_name)
+    checkpoint = os.path.join(output_dir, '%s_best.pth' % args.model_name)
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    if not os.path.exists(args.log_dir):
+        os.mkdir(args.log_dir)
+
+    # train
     if args.mode == 'train':
         writer = SummaryWriter('{}{}/'.format(args.log_dir, args.model_name) + time_stamp)
-        for epoch in range(params['max_epoch']):
+        for epoch in range(params['start_epoch'], params['max_epoch']):
             train(writer, model, optimizer, device, train_loader, epoch)
-            if (epoch + 1) % 1000 == 0:
-                torch.save({'epoch': epoch,
-                            'state_dict': model.state_dict(),
-                            'optimizer': optimizer.state_dict()
-                            },
-                           args.save_dir + args.model_name + '/{}.pth'.format(str(epoch + 1)))
-                print("{:%Y-%m-%dT%H-%M-%S} saved model {}".format(
-                    datetime.now(),
-                    args.save_dir + args.model_name + '/{}.pth'.format(str(epoch + 1))))
             current = val(writer, model, device, val_loader, epoch)
-            lr_scheduler.step(current)
-        print('Finished Training')
-        writer.close()
-    else:
-        test(model, device, test_loader)
 
+            if np.greater(current, best):
+                print('Epoch %d: val_acc improve from %.4f to %.4f, saving model to %s'
+                      % (epoch + 1, best, current, checkpoint))
+                best = current
+                best_epoch = epoch + 1
+                torch.save({'epoch': epoch + 1,
+                            'best': best,
+                            'state_dict': model.state_dict(),
+                            'optimizer': optimizer.state_dict(),
+                            }, checkpoint)
+                earlystop = 0
+            else:
+                earlystop += 1
+
+            lr_scheduler.step(current)
+            if earlystop > 8:
+                print('Epoch %d: early stop' % (epoch + 1))
+                break
+
+        print('Best val_acc: %.4f comes from epoch-%d' % (best, best_epoch))
+        writer.close()
+
+    # test
+    test(model, device, test_loader, checkpoint)
 
 def train(writer, model, optimizer, device, train_loader, epoch):
     model.train()
@@ -130,10 +156,11 @@ def train(writer, model, optimizer, device, train_loader, epoch):
                               acces / 3200,
                               epoch * len(train_loader) + idx + 1)
             print(
-                "{:%Y-%m-%dT%H-%M-%S}  epoch:{}  batch:{}  (loss:{:.3f} acc:{:.3f}).".format(datetime.now(), epoch + 1,
-                                                                                             idx + 1,
-                                                                                             losses / 100,
-                                                                                             acces / 3200))
+                "{:%Y-%m-%dT%H-%M-%S}  Epoch-{:<3d} {:3d} Batch  Loss:{:.4f} Acc:{:.4f}".format(datetime.now(),
+                                                                                                 epoch + 1,
+                                                                                                 idx + 1,
+                                                                                                 losses / 100,
+                                                                                                 acces / 3200))
             acces, losses = 0.0, 0.0
 
 
@@ -157,13 +184,14 @@ def val(writer, model, device, val_loader, epoch):
         writer.add_scalar('Loss/Val',
                           loss,
                           epoch + 1)
-        print('(Val Set)  Epoch:{}  Average Loss: {:.3f}, Accuracy: {}/{} ({:.3f}%)'.
+        print('(Val Set) Epoch-{}  Loss: {:.2f}, Accuracy: {}/{} ({:.2f}%)'.
               format(epoch + 1, loss, correct, len(val_loader.dataset), 100. * correct / len(val_loader.dataset)))
 
     return 100.0 * correct / len(val_loader.dataset)
 
 
 def test(model, device, test_loader):
+    model.load_state_dict(torch.load(checkpoint)['state_dict'])
     model.eval()
     loss = 0.0
     correct = 0
@@ -177,7 +205,7 @@ def test(model, device, test_loader):
             correct += pred.eq(target.view_as(pred)).sum().item()
 
         loss /= len(test_loader.dataset)
-        print('(Test Set) Average Loss: {:.3f}, Accuracy: {}/{} ({:.3f}%)'.
+        print('(Test Set) Loss: {:.2f}, Accuracy: {}/{} ({:.2f}%)'.
               format(loss, correct, len(test_loader.dataset), 100. * correct / len(test_loader.dataset)))
 
 
