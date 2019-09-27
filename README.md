@@ -19,11 +19,7 @@ Other Datasets: not supported now
 
 * Process the data
 
-```
-cd ./data
-
-python ntu_generate_data.py
-```
+`python data/ntu_generate_data.py`
 
 Finally, we get the cross-view and cross-subject subsets for training, containing train, validate and test dataset seperately.
 
