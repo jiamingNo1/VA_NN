@@ -42,22 +42,15 @@ def main():
     params['dataset_dir'] = args.dataset_dir
     params['dataset_name'] = args.dataset_name
 
-    # cuda setting
-    if args.cuda:
-        torch.set_default_tensor_type('torch.cuda.FloatTensor')
-
     device = torch.device("cuda" if args.cuda else "cpu")
     if args.model_name == 'vacnn':
         model = VACNN()
-        model = nn.DataParallel(model).to(device)
     elif args.model_name == 'varnn':
         model = VARNN()
-        model = nn.DataParallel(model).to(device)
     else:
         raise ValueError()
 
     # pretrained model
-    model = model.module
     resnet50 = torch.load('weights/resnet50.pth')
     model_dict = model.state_dict()
     resnet50 = {'resnet_layer.' + k: v for k, v in resnet50.items() if 'resnet_layer.' + k in model_dict}
@@ -65,6 +58,7 @@ def main():
     model.load_state_dict(model_dict)
     in_features = model.resnet_layer.fc.in_features
     model.resnet_layer.fc = nn.Linear(in_features, 60)
+    model = nn.DataParallel(model).to(device)
 
     # optimizer mode
     if params['optimizer'] == 'Adam':

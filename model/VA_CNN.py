@@ -65,10 +65,14 @@ class VACNN(nn.Module):
                  [math.sin(-out[n, 2].item()), math.cos(out[n, 2].item()), 0],
                  [0, 0, 1]]
             )
+
             rotation = torch.mm(torch.mm(rotation_z, rotation_y), rotation_x)
-            out_ = torch.mm(rotation, x[n, :, :, :].view(C, T * V)) + 255 * (
-                    torch.mm(rotation, (min_val + out[n, 3:6].view(-1, 1).expand(-1, T * V))) - min_val) / (
-                           max_val - min_val)
+            rotation = rotation.to('cuda')
+            part_1 = torch.mm(rotation, x[n, :, :, :].view(C, T * V))
+            part_2 = torch.div(torch.mm(rotation, (min_val + out[n, 3:6].view(-1, 1).expand(-1, T * V))) - min_val,
+                               max_val - min_val)
+
+            out_ = torch.add(part_1, torch.mul(255, part_2))
             out_ = out_.contiguous().view(C, T, V)
             sub_out.append(out_)
 
