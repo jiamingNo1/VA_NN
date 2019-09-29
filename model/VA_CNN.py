@@ -101,7 +101,7 @@ if __name__ == '__main__':
     model = VACNN()
     resnet50 = torch.load('weights/resnet50.pth')
     model_dict = model.state_dict()
-    resnet50 = {'resnet_layer.'+k: v for k, v in resnet50.items() if 'resnet_layer.'+k in model_dict}
+    resnet50 = {'resnet_layer.' + k: v for k, v in resnet50.items() if 'resnet_layer.' + k in model_dict}
     model_dict.update(resnet50)
     model.load_state_dict(model_dict)
     in_features = model.resnet_layer.fc.in_features
