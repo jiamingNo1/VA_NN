@@ -96,14 +96,14 @@ def random_rotate(data, rand_rotate):
 
 
 def fetch_dataloader(mode, params):
-    if 'CV' in params['dataset_name']:
+    if 'cv' in params['dataset_name']:
         params['train_feeder_args']['data_path'] = params['dataset_dir'] + 'NTU-RGB+D' + '/cv/train_data.npy'
         params['train_feeder_args']['label_path'] = params['dataset_dir'] + 'NTU-RGB+D' + '/cv/train_label.pkl'
         params['val_feeder_args']['data_path'] = params['dataset_dir'] + 'NTU-RGB+D' + '/cv/val_data.npy'
         params['val_feeder_args']['label_path'] = params['dataset_dir'] + 'NTU-RGB+D' + '/cv/val_label.pkl'
         params['test_feeder_args']['data_path'] = params['dataset_dir'] + 'NTU-RGB+D' + '/cv/test_data.npy'
         params['test_feeder_args']['label_path'] = params['dataset_dir'] + 'NTU-RGB+D' + '/cv/test_label.pkl'
-    if 'CS' in params['dataset_name']:
+    if 'cs' in params['dataset_name']:
         params['train_feeder_args']['data_path'] = params['dataset_dir'] + 'NTU-RGB+D' + '/cs/train_data.npy'
         params['train_feeder_args']['label_path'] = params['dataset_dir'] + 'NTU-RGB+D' + '/cs/train_label.pkl'
         params['val_feeder_args']['data_path'] = params['dataset_dir'] + 'NTU-RGB+D' + '/cs/val_data.npy'

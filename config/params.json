@@ -1,7 +1,6 @@
 {
   "dataset_dir": null,
   "dataset_name": null,
-  "cuda": true,
   "lr": 0.0001,
   "batch_size": 32,
   "max_epoch": 100,

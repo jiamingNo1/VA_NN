@@ -25,7 +25,7 @@ def str2bool(v):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset_dir', default='data/', help='root directory for all datasets')
-parser.add_argument('--dataset_name', default='NTU-RGB+D-CV', help='dataset name')
+parser.add_argument('--dataset_name', default='cv', help='dataset name')
 parser.add_argument('--save_dir', default='weights/', help='root directory for saving checkpoint models')
 parser.add_argument('--log_dir', default='logs/', help='root directory for train and test log')
 parser.add_argument('--model_name', default='vacnn', help='model name')
@@ -45,15 +45,15 @@ def main():
     device = torch.device("cuda" if args.cuda else "cpu")
     if args.model_name == 'vacnn':
         model = VACNN()
-        model = nn.DataParallel(model).to(device)
+        # model = nn.DataParallel(model).to(device)
     elif args.model_name == 'varnn':
         model = VARNN()
-        model = nn.DataParallel(model).to(device)
+        # model = nn.DataParallel(model).to(device)
     else:
         raise ValueError()
 
     # pretrained model
-    model = model.module
+    # model = model.module
     resnet50 = torch.load('weights/resnet50.pth')
     model_dict = model.state_dict()
     resnet50 = {'resnet_layer.' + k: v for k, v in resnet50.items() if 'resnet_layer.' + k in model_dict}
@@ -84,7 +84,7 @@ def main():
     best_epoch = 0
     earlystop = 0
     output_dir = os.path.join(args.save_dir, args.model_name)
-    checkpoint = os.path.join(output_dir, '%s_best.pth' % args.model_name)
+    checkpoint = os.path.join(output_dir, '%s_%s_best.pth' % (args.model_name, args.dataset_name))
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
