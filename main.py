@@ -58,7 +58,10 @@ def main():
     model.load_state_dict(model_dict)
     in_features = model.resnet_layer.fc.in_features
     model.resnet_layer.fc = nn.Linear(in_features, 60)
-    model = nn.DataParallel(model).to(device)
+    try:
+        model = nn.DataParallel(model).to(device)
+    except:
+        model = model.to(device)
 
     # optimizer mode
     if params['optimizer'] == 'Adam':
