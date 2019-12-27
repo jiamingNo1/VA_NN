@@ -16,7 +16,7 @@ class VACNN(nn.Module):
     where N is the number of samples,
           C is the number of input channels,
           T is the length of the sequence,
-          V is the number of joints,
+          V is the number of joints.
     '''
 
     def __init__(self, num_class=60):
