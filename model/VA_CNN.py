@@ -19,9 +19,8 @@ class VACNN(nn.Module):
           V is the number of joints.
     '''
 
-    def __init__(self, num_class=60):
+    def __init__(self):
         super(VACNN, self).__init__()
-        self.num_class = num_class
         self.conv1 = nn.Conv2d(3, 128, kernel_size=5, stride=2, bias=False)
         self.bn1 = nn.BatchNorm2d(128)
         self.relu1 = nn.ReLU(inplace=True)

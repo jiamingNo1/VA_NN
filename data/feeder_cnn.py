@@ -78,22 +78,6 @@ class Feeder(torch.utils.data.Dataset):
 
         return rgb_data, label
 
-def random_rotate(data, rand_rotate):
-    C, T, V, M = data.shape
-    R = np.eye(3)
-    for i in range(3):
-        theta = (np.random.rand() * 2 - 1) * rand_rotate * np.pi
-        Ri = np.zeros(3, 3)
-        Ri[i, i] = 1
-        Ri[(i + 1) % 3, (i + 1) % 3] = np.cos(theta)
-        Ri[(i + 2) % 3, (i + 2) % 3] = np.cos(theta)
-        Ri[(i + 1) % 3, (i + 2) % 3] = np.sin(theta)
-        Ri[(i + 2) % 3, (i + 1) % 3] = -np.sin(theta)
-        R = np.matmul(R, Ri)
-    data = np.matmul(R, data.reshape(C, T * V * M)).reshape((C, T, V, M)).astype('float32')
-
-    return data
-
 
 def fetch_dataloader(mode, params):
     if 'cv' in params['dataset_name']:

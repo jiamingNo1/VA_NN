@@ -15,8 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 
 from model.VA_CNN import VACNN
-from model.VA_RNN import VARNN
-from data.feeder import fetch_dataloader
+from data.feeder_cnn import fetch_dataloader
 
 
 def str2bool(v):
@@ -43,12 +42,7 @@ def main():
     params['dataset_name'] = args.dataset_name
 
     device = torch.device("cuda" if args.cuda else "cpu")
-    if args.model_name == 'vacnn':
-        model = VACNN()
-    elif args.model_name == 'varnn':
-        model = VARNN()
-    else:
-        raise ValueError()
+    model = VACNN()
 
     # pretrained model
     resnet50 = torch.load('weights/resnet50.pth')
