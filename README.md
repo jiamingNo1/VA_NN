@@ -25,13 +25,11 @@ Finally, we get the cross-view and cross-subject subsets for training, containin
 
 ### Train
 
-`python main_cnn.py`
-`python main_rnn.py`
+`python main_cnn.py` or `python main_rnn.py`
 
 ### Test
 
-`python main_cnn.py --mode test`
-`python main_rnn.py --mode test`
+`python main_cnn.py --mode test` or `python main_rnn.py --mode test`
 
 ### Reference
 
